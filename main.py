@@ -65,6 +65,7 @@ class Scraper:
             for _ in range(3):  # Retry mechanism
                 try:
                     response = requests.get(url, proxies=proxies)
+                    print(response)
                     if response.status_code == 200:
                         break
                 except requests.RequestException:
@@ -73,19 +74,38 @@ class Scraper:
                 continue
 
             soup = BeautifulSoup(response.content, 'html.parser')
-            product_cards = soup.find_all('div', class_='product-card')
+            product_cards = soup.find_all('div', class_='mf-product-details')
 
             for card in product_cards:
-                name = card.find('h2', class_='product-title').text.strip()
-                price = card.find('span', class_='price').text.strip()
-                image_url = card.find('img', class_='product-image')['src']
-                image_path = self.save_image(image_url, name)
+                print(card)
+                print("***********")
+                name_tag = card.find('h2', class_='woo-loop-product__title')
+                name = name_tag.text.strip() if name_tag else 'No name found'
 
+                price_tag = card.find('span', class_='price')
+                if price_tag:
+                    current_price_tag = price_tag.find('ins')
+                    if current_price_tag:
+                        current_price = current_price_tag.text.strip().replace('₹', '').replace(',', '')
+                    else:
+                        current_price = price_tag.text.strip().replace('₹', '').replace(',', '')
+                else:
+                    current_price = '0.0'
+
+                try:
+                    current_price = float(current_price)
+                except ValueError:
+                    current_price = '0.0'
+
+                img_tag = card.find('img', class_='mf-product-thumbnail')
+                image_url = img_tag['src'] if img_tag else None
+                image_path = self.save_image(image_url, name) if image_url else 'No image found'
                 product = {
                     "product_title": name,
-                    "product_price": float(price.replace('$', '').replace(',', '')),  # Convert price to float
+                    "product_price": current_price,
                     "path_to_image": image_path
                 }
+                print(product)
 
                 # Cache check
                 cached_price = cache.get(name)
